@@ -1,10 +1,12 @@
 from openai import OpenAI
+from dotenv import load_dotenv
+import os
 
-OPENAI_API_KEY="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"
+load_dotenv()
 
 try:
     openai_client = OpenAI(
-        api_key=OPENAI_API_KEY,
+        api_key=os.getenv("OPENAI_API_KEY"),
     )
 except Exception as e:
     print(f"[OPENAI] Error:({e}), please check whether you have the correct OPENAI_API_KEY setup within .env!")
