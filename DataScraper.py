@@ -254,7 +254,7 @@ def get_scraped_data_with_pages(depth):
             return obj
 
     # Save to JSON file for later review
-    output_file = "scraped_data1.json"
+    output_file = "scraped_data.json"
     scraped_data_clean = convert_objectid(scraped_data)
 
     with open(output_file, "w", encoding="utf-8") as f:
