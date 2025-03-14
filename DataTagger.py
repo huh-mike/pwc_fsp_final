@@ -39,22 +39,34 @@ def load_article_embeddings(article_data, article_embeddings_dir):
 
     for article in article_data:
         article_id = article["_id"]
-        embedding_reference = article.get("pdf_embedding_reference", article.get("embedding_reference"))
-
-        # Skip articles/PDFs with missing embedding references
-        if embedding_reference is None:
-            print(f"Warning: Missing embedding reference for article ID {article_id}. Skipping...")
-            continue
-
-        embedding_path = os.path.join(article_embeddings_dir, embedding_reference)
-
-        try:
-            with open(embedding_path, 'r') as f:
-                embedding = json.load(f)
-            
-            article_embeddings[article_id] = np.array(embedding)
-        except FileNotFoundError:
-            print(f"Error: Embedding file not found for article ID {article_id} at path {embedding_path}. Skipping...")
+        
+        # Load main article embedding
+        embedding_reference = article.get("embedding_reference")
+        if embedding_reference:
+            embedding_path = os.path.join(article_embeddings_dir, embedding_reference)
+            try:
+                with open(embedding_path, 'r') as f:
+                    embedding = json.load(f)
+                
+                article_embeddings[article_id] = np.array(embedding)
+            except FileNotFoundError:
+                print(f"Error: Embedding file not found for article ID {article_id} at path {embedding_path}. Skipping...")
+        
+        # Load PDF embeddings
+        if "pdfs" in article and article["pdfs"]:
+            for pdf in article["pdfs"]:
+                pdf_id = f"{article_id}_pdf"
+                pdf_embedding_reference = pdf.get("pdf_embedding_reference")
+                
+                if pdf_embedding_reference:
+                    pdf_embedding_path = os.path.join(article_embeddings_dir, pdf_embedding_reference)
+                    try:
+                        with open(pdf_embedding_path, 'r') as f:
+                            pdf_embedding = json.load(f)
+                        
+                        article_embeddings[pdf_id] = np.array(pdf_embedding)
+                    except FileNotFoundError:
+                        print(f"Error: Embedding file not found for PDF in article ID {article_id} at path {pdf_embedding_path}. Skipping...")
 
     return article_embeddings
 
@@ -94,22 +106,25 @@ def tag_articles_and_pdfs(taxonomy_csv, taxo_embeddings_dir, article_data, artic
     for article in article_data:
         article_id = article["_id"]
 
-        # Skip articles/PDFs without embeddings
-        if article_id not in article_embeddings:
-            print(f"Skipping article ID {article_id} due to missing embedding.")
-            continue
-
-        summary = article.get("summary", article.get("pdf_summary", ""))
-        article_embedding = article_embeddings[article_id]
-
-        # Get top 5 tags
-        top_tags = get_top_tags(article_embedding, tag_embeddings)
-
-        # Add tags to the article/PDF
-        if "pdf_summary" in article:
-            article["pdf_tags"] = top_tags
-        else:
+        # Tag main article
+        if article_id in article_embeddings:
+            article_embedding = article_embeddings[article_id]
+            top_tags = get_top_tags(article_embedding, tag_embeddings)
             article["tags"] = top_tags
+        else:
+            print(f"Skipping article ID {article_id} due to missing embedding.")
+
+        # Tag PDFs
+        if "pdfs" in article and article["pdfs"]:
+            for pdf in article["pdfs"]:
+                pdf_id = f"{article_id}_pdf"
+                
+                if pdf_id in article_embeddings:
+                    pdf_embedding = article_embeddings[pdf_id]
+                    top_tags = get_top_tags(pdf_embedding, tag_embeddings)
+                    pdf["pdf_tags"] = top_tags
+                else:
+                    print(f"Skipping PDF in article ID {article_id} due to missing embedding.")
 
         tagged_data.append(article)
 
