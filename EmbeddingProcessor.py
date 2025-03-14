@@ -242,6 +242,6 @@ def create_article_summary(title: str, text: str, max_tokens: int = 6000) -> str
         return article_content[:6000] + "..."
 
 
-
+# Run embedding generations here!
 if __name__ == "__main__":
     generate_embeddings_for_taxonomy()

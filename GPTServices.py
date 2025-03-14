@@ -64,9 +64,10 @@ def gpt_stream_responses(conversation, update_callback, finished_callback, chat_
         # Create a chat completion with streaming enabled.
         response = openai_client.chat.completions.create(
             model="gpt-4o",
-            messages=chat_history.get_conversation(),
+            messages=conversation,
             stream=True
         )
+
         full_response = ""
         for chunk in response:
             # Each chunk is a dict. The text delta is found under: chunk.choices[0].delta.content
