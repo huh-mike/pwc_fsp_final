@@ -1,7 +1,6 @@
 import os
 import json
 from pymongo import MongoClient
-import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from typing import List, Dict, Any, Tuple
 

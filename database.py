@@ -46,7 +46,7 @@ def load_embedding(file_path):
 def process_data():
     """ Processes and merges raw data, flattened articles, and embeddings into a unified format. """
 
-    # Load scraped data (raw articles)
+    # Load scraped data
     scraped_data = load_json(SCRAPED_DATA_FILE)
     scraped_data_dict = {str(entry.get("_id") or entry.get("id")): entry for entry in scraped_data}  # Map by ID
 
