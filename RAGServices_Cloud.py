@@ -1,4 +1,4 @@
-import os
+import os.
 import json
 from pymongo import MongoClient
 import numpy as np
