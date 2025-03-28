@@ -124,7 +124,9 @@ def get_scraped_data_with_pages(depth):
 
     urls_dict = {}
     for i in range(depth):
-        urls_dict.update(get_urls_in_iras_updates(i))
+        urls_dict.update(get_urls_in_iras_updates(i+1))
+
+    print(urls_dict)
 
     scraped_data = []
 
@@ -254,7 +256,7 @@ def get_scraped_data_with_pages(depth):
             return obj
 
     # Save to JSON file for later review
-    output_file = "scraped_data.json"
+    output_file = "scraped_data3.json"
     scraped_data_clean = convert_objectid(scraped_data)
 
     with open(output_file, "w", encoding="utf-8") as f:
@@ -269,4 +271,4 @@ def get_scraped_data_with_pages(depth):
 
 
 if __name__ == "__main__":
-    get_scraped_data_with_pages(1)
+    get_scraped_data_with_pages(5)
