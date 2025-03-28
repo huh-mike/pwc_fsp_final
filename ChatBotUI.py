@@ -1,8 +1,7 @@
 from GPTServices import ChatHistory, gpt_stream_responses
-from RAGServices import fetch_relevant_documents
+from RAGServices_Cloud import fetch_relevant_documents
 
-
-# Helper Functions
+# Helper Function
 def update_callback(content):
     print(content, end="", flush=True)
 
