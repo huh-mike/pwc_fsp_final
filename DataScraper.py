@@ -7,6 +7,7 @@ import dotenv
 import requests
 from urllib.parse import urlparse
 from bson import ObjectId  # Import ObjectId to check for MongoDB types
+import time
 
 
 from selenium import webdriver
@@ -25,12 +26,22 @@ from GPTServices import gpt_generate_single_response
 
 dotenv.load_dotenv()
 
+# Define a function to log timing statements
+def log_timing(log_file, message):
+    """
+    Writes a timing message to the specified log file.
+    :param log_file: The file object to write to.
+    :param message: The timing message to log.
+    """
+    log_file.write(f"{message}\n")
+
 
 def get_urls_in_iras_updates(depth):
     '''
     :param depth: number of pages to crawl.
     :return: Dictionary that contains the titles with their urls to be crawled.
     '''
+    start_time = time.time()  # Start timing
     chrome_options = Options()
     chrome_options.add_argument('--headless')
     chrome_options.add_argument('--disable-gpu')
@@ -54,7 +65,10 @@ def get_urls_in_iras_updates(depth):
                 title = a_tag.text.strip()
                 link = a_tag.get_attribute("href")
                 if title and link:
-                    links_dict[title] = link
+                    if link not in links_dict.values():
+                        links_dict[title] = link
+                    else:
+                        print(f"Skipping duplicate URL: {link}")
             except Exception as inner_err:
                 print("Error extracting data from an article:", inner_err)
     except Exception as e:
@@ -62,7 +76,11 @@ def get_urls_in_iras_updates(depth):
     finally:
         driver.quit()
         print(links_dict)
+    
 
+    end_time = time.time()  # End timing
+    with open("timing_log.txt", "a", encoding="utf-8") as timing_log:
+        log_timing(timing_log, f"Time taken for get_urls_in_iras_updates: {end_time - start_time:.2f} seconds")
     return links_dict
 
 
@@ -78,6 +96,7 @@ async def crawl_4_ai_contents_paragraph_break(url):
         content (array of strings): The actual text content, stored as an array (likely to support multiple paragraphs or lines).
         error (boolean): Indicates whether there is an issue with the section.
     '''
+    start_time = time.time()  # Start timing
     browser_config = BrowserConfig(headless=True, verbose=True)
     # extraction_instruction = "Extract the exact text content of the article, word-for-word, without summarizing, rephrasing, or omitting any part of it. Exclude only navigation menus, advertisements, and unrelated footer content. Do not alter the original text in any way."
     extraction_instruction = (
@@ -103,6 +122,10 @@ async def crawl_4_ai_contents_paragraph_break(url):
         result = await crawler.arun(url=url, config=run_config)
         llm_strategy.show_usage()
         return {"url": url, "text": result.extracted_content}
+    
+    end_time = time.time()  # End timing
+    with open("timing_log.txt", "a", encoding="utf-8") as timing_log:
+        log_timing(timing_log, f"Time taken for crawl_4_ai_contents_paragraph_break: {end_time - start_time:.2f} seconds")
 
 
 def get_scraped_data_with_pages(depth):
@@ -113,7 +136,6 @@ def get_scraped_data_with_pages(depth):
     :param depth: number of pages to scrape
     :return: json file 
     '''
-
     def is_pdf_link(input_url):
         try:
             response = requests.head(input_url, allow_redirects=True, timeout=5)
@@ -142,15 +164,19 @@ def get_scraped_data_with_pages(depth):
                     "The output should be just a regular string with paragraphing."
                     "Ensure there's no summarization or any variation of the original text.")
                 processed_text = gpt_generate_single_response(user_prompt=extracted_text,system_prompt=system_prompt,model="gpt-4o-mini",temperature=0,token_limit=16000)
-                scraped_data.append({"title": title, "url": main_url, "text": processed_text, "pdfs":[], "tags": ["PDF"]})
+                scraped_data.append({"_id": ObjectId(), "title": title, "url": main_url, "text": processed_text, "pdfs":[], "tags": ["PDF"]})
                 continue
 
             except Exception as e:
                 print(f"Error processing the following pdf: {main_url}, {e}")
                 continue
 
+        start_time = time.time()  # Start timing 
         content = asyncio.run(crawl_4_ai_contents_paragraph_break(main_url))
-        print(content)
+        # print(content)
+        end_time = time.time()  # End timing
+        with open("timing_log.txt", "a", encoding="utf-8") as timing_log:
+            log_timing(timing_log, f"Time taken for crawl_4_ai_contents_paragraph_break: {end_time - start_time:.2f} seconds")
 
         system_prompt = ("By analyzing the given content, generate the actual content of the website article in plain English. Only use the original text written in the website. Do not include formatting elements, structural placeholders that do not contribute meaning."
                          "If there is a link to a secondary page or a PDF that is directly relevant to the main content of the article, list those links under the key 'urls'. If no such links exist, 'urls' should contain an empty set. "
@@ -162,7 +188,7 @@ def get_scraped_data_with_pages(depth):
                          "Ensure that only the core, meaningful content of the article is retained.")
 
         cleaned_text = gpt_generate_single_response(user_prompt=content["text"],system_prompt=system_prompt,model="gpt-4o-mini",temperature=0,token_limit=16000)
-        print(cleaned_text)
+        # print(cleaned_text)
 
         if isinstance(cleaned_text, str):
             try:
@@ -172,6 +198,7 @@ def get_scraped_data_with_pages(depth):
                 cleaned_text = []  
 
         # Check and crawl pdf files within a webpage
+        start_time = time.time()  # Start timing
         if cleaned_text:
             try:
                 urls = cleaned_text["urls"]
@@ -207,16 +234,18 @@ def get_scraped_data_with_pages(depth):
             except KeyError as e:
                 print(f"ERROR processing pdf from webpage: {e}")
 
-
+        end_time = time.time()  # End timing
+        with open("timing_log.txt", "a", encoding="utf-8") as timing_log:
+            log_timing(timing_log, f"Time taken for checking and crawling pdfs: {end_time - start_time:.2f} seconds")
         # Dummy Tags: will replace later
         # print(url)
         # print(main_url)
-        scraped_data.append({"title": title, "url": main_url, "text": cleaned_text, "pdfs": pdfs_list, "tags": ["IRAS"]})
+        scraped_data.append({"_id": ObjectId(), "title": title, "url": main_url, "text": cleaned_text, "pdfs": pdfs_list, "tags": ["IRAS"]})
 
 
     # Here is to parse the string list format into actual list format.
 
-    print(scraped_data)
+    # print(scraped_data)
     # upload_to_mongo(scraped_data, "FSPDatabase",
     #                 "untaggeddatabase")
 
@@ -256,7 +285,7 @@ def get_scraped_data_with_pages(depth):
             return obj
 
     # Save to JSON file for later review
-    output_file = "scraped_data3.json"
+    output_file = "scraped_data.json"
     scraped_data_clean = convert_objectid(scraped_data)
 
     with open(output_file, "w", encoding="utf-8") as f:
@@ -271,4 +300,8 @@ def get_scraped_data_with_pages(depth):
 
 
 if __name__ == "__main__":
-    get_scraped_data_with_pages(5)
+    start_time = time.time()  # Start timing
+    get_scraped_data_with_pages(1)
+    end_time = time.time()  # End timing
+    with open("timing_log.txt", "a", encoding="utf-8") as timing_log:
+        log_timing(timing_log, f"Total time taken for get_scraped_data_with_pages: {end_time - start_time:.2f} seconds")
